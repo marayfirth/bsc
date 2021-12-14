@@ -470,11 +470,62 @@ func returnLogs(logs []*types.Log) []*types.Log {
 	return logs
 }
 
-func returnTransactions(transactions []*types.Transaction) []*types.Transaction {
-	if transactions == nil {
-		return []*types.Transaction{}
+type RPCTransaction struct {
+	From     common.Address    `json:"from"`
+	Gas      hexutil.Uint64    `json:"gas"`
+	GasPrice *hexutil.Big      `json:"gasPrice"`
+	Hash     common.Hash       `json:"hash"`
+	Input    hexutil.Bytes     `json:"input"`
+	Nonce    hexutil.Uint64    `json:"nonce"`
+	To       *common.Address   `json:"to"`
+	Value    *hexutil.Big      `json:"value"`
+	Type     hexutil.Uint64    `json:"type"`
+	Accesses *types.AccessList `json:"accessList,omitempty"`
+}
+
+func newRPCTransaction(tx *types.Transaction) *RPCTransaction {
+	// Determine the signer. For replay-protected transactions, use the most permissive
+	// signer, because we assume that signers are backwards-compatible with old
+	// transactions. For non-protected transactions, the homestead signer signer is used
+	// because the return value of ChainId is zero for those transactions.
+	var signer types.Signer
+	if tx.Protected() {
+		signer = types.LatestSignerForChainID(tx.ChainId())
+	} else {
+		signer = types.HomesteadSigner{}
 	}
-	return transactions
+
+	from, _ := types.Sender(signer, tx)
+	result := &RPCTransaction{
+		Type:     hexutil.Uint64(tx.Type()),
+		From:     from,
+		Gas:      hexutil.Uint64(tx.Gas()),
+		GasPrice: (*hexutil.Big)(tx.GasPrice()),
+		Hash:     tx.Hash(),
+		Input:    hexutil.Bytes(tx.Data()),
+		Nonce:    hexutil.Uint64(tx.Nonce()),
+		To:       tx.To(),
+		Value:    (*hexutil.Big)(tx.Value()),
+	}
+	if tx.Type() == types.AccessListTxType {
+		al := tx.AccessList()
+		result.Accesses = &al
+	}
+	return result
+}
+
+func returnTransactions(transactions []*types.Transaction) []*RPCTransaction {
+	if transactions == nil {
+		return []*RPCTransaction{}
+	}
+
+	var rpcTxs = make([]*RPCTransaction, 0)
+
+	for _, t := range transactions {
+		rpcTxs = append(rpcTxs, newRPCTransaction(t))
+	}
+
+	return rpcTxs
 }
 
 // UnmarshalJSON sets *args fields with given data.
