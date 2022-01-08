@@ -481,6 +481,7 @@ type RPCTransaction struct {
 	Value    *hexutil.Big      `json:"value"`
 	Type     hexutil.Uint64    `json:"type"`
 	Accesses *types.AccessList `json:"accessList,omitempty"`
+	Time     int64             `json:"time"`
 }
 
 func newRPCTransaction(tx *types.Transaction) *RPCTransaction {
@@ -506,6 +507,7 @@ func newRPCTransaction(tx *types.Transaction) *RPCTransaction {
 		Nonce:    hexutil.Uint64(tx.Nonce()),
 		To:       tx.To(),
 		Value:    (*hexutil.Big)(tx.Value()),
+		Time:     tx.Time().UnixMilli(),
 	}
 	if tx.Type() == types.AccessListTxType {
 		al := tx.AccessList()
